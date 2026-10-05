@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Date.exe</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+/* Farben als Tokens, Dark Mode dunkelt nur den Desktop ab */
+:root{
+  --desk:#008080; --win:#c0c0c0; --face:#dfdfdf; --hi:#ffffff; --sh:#808080; --dk:#0a0a0a;
+  --t1:#000080; --t2:#1084d0; --ink:#000; --field:#fff; --bsod:#0000aa;
+  --ui: Tahoma, "MS Sans Serif", Verdana, "Segoe UI", sans-serif;
+  --term: "VT323", "Courier New", monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ --desk:#0b4f4f; --win:#b4b4b4; --face:#cfcfcf; }
+}
+:root[data-theme="dark"]{ --desk:#0b4f4f; --win:#b4b4b4; --face:#cfcfcf; }
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%; scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0; height:100%; background:var(--desk); color:var(--ink); font:14px/1.4 var(--ui); overflow:hidden; -webkit-tap-highlight-color:transparent}
+
+/* Bootscreen */
+#boot{position:fixed; inset:0; background:#000; color:#c8c8c8; font:22px/1.25 var(--term); padding:calc(16px + env(safe-area-inset-top,0px)) 18px 18px; z-index:100; cursor:pointer; overflow:hidden}
+#boot .ok{color:#5f5} #boot .warn{color:#fd5}
+#boot .hint{margin-top:14px; animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+
+/* Desktop */
+#desk{height:100%; display:flex; flex-direction:column; padding:12px 12px 52px}
+.icons{display:flex; gap:6px; flex-wrap:wrap}
+.icon{width:76px; background:none; border:0; color:#fff; font:12px/1.2 var(--ui); text-align:center; padding:4px; cursor:pointer}
+.icon span{display:block; font-size:30px; margin-bottom:3px}
+.icon:focus-visible{outline:1px dotted #fff}
+.stage{flex:1; display:flex; align-items:center; justify-content:center; min-height:0}
+
+/* Fenster mit klassischer 3D-Kante */
+.win{background:var(--win); width:min(94vw,440px); padding:3px;
+  box-shadow:inset -1px -1px var(--dk), inset 1px 1px var(--face), inset -2px -2px var(--sh), inset 2px 2px var(--hi)}
+.bar{background:linear-gradient(90deg,var(--t1),var(--t2)); color:#fff; font-weight:bold; padding:3px 4px 3px 6px; display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:13px}
+.bar .x{width:18px; height:16px; font:bold 11px/1 var(--ui); padding:0}
+.body{padding:16px 14px 14px}
+.btn{background:var(--win); border:0; min-width:84px; padding:6px 12px; font:14px var(--ui); color:var(--ink); cursor:pointer;
+  box-shadow:inset -1px -1px var(--dk), inset 1px 1px var(--hi), inset -2px -2px var(--sh), inset 2px 2px var(--face)}
+.btn:active{box-shadow:inset 1px 1px var(--dk), inset -1px -1px var(--hi), inset 2px 2px var(--sh)}
+.btn:focus-visible{outline:1px dotted var(--ink); outline-offset:-5px}
+.btn:disabled{color:var(--sh); text-shadow:1px 1px var(--hi); cursor:default}
+.row{display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap; margin-top:16px}
+h1{font:28px/1.1 var(--term); margin:0 0 10px; letter-spacing:.5px}
+p{margin:0 0 10px}
+.sunken{background:var(--field); padding:8px; box-shadow:inset 1px 1px var(--sh), inset -1px -1px var(--hi), inset 2px 2px var(--dk), inset -2px -2px var(--face)}
+
+/* Frage */
+.ask{display:flex; gap:14px; align-items:flex-start}
+.ask .big{font-size:42px; line-height:1}
+#yes{transition:transform .25s; transform-origin:center}
+#no.free{position:fixed; z-index:40; transition:left .18s, top .18s}
+
+/* Fortschritt */
+.prog{height:22px; display:flex; gap:2px; padding:3px}
+.prog i{width:12px; background:var(--t1); display:block}
+.small{font-size:12px; color:#333}
+
+/* Assistent */
+.opts{display:grid; grid-template-columns:1fr 1fr; gap:6px}
+.opts label{display:flex; gap:6px; align-items:center; padding:4px; cursor:pointer}
+.opts label.off{color:var(--sh)}
+input[type=date],input[type=time]{font:14px var(--ui); padding:4px; border:0; width:100%;
+  box-shadow:inset 1px 1px var(--sh), inset -1px -1px var(--hi), inset 2px 2px var(--dk); background:var(--field); color:var(--ink)}
+.f{margin-bottom:10px} .f > span{display:block; margin-bottom:4px}
+.eula{height:140px; overflow:auto; font-size:12px; line-height:1.45}
+.eula ol{margin:6px 0; padding-left:20px}
+.steps{font-size:12px; color:#333; margin-bottom:10px}
+
+/* Ticket */
+.ticket{font:20px/1.3 var(--term)}
+.ticket dt{color:#555} .ticket dd{margin:0 0 6px}
+a.btn{text-decoration:none; display:inline-block; text-align:center}
+
+/* Dialoge */
+.dlg{position:fixed; z-index:60; width:min(88vw,320px)}
+.dlg .body{display:flex; gap:12px; align-items:flex-start}
+.dlg .body > span{font-size:30px; line-height:1}
+
+/* Taskleiste */
+#task{position:fixed; left:0; right:0; bottom:0; background:var(--win); display:flex; justify-content:space-between; align-items:center; padding:4px 4px calc(4px + env(safe-area-inset-bottom,0px)); box-shadow:inset 0 1px var(--face), inset 0 2px var(--hi); z-index:50}
+#start{font-weight:bold; min-width:0}
+#clock{background:none; border:0; font:13px var(--ui); color:var(--ink); padding:4px 10px; cursor:pointer;
+  box-shadow:inset 1px 1px var(--sh), inset -1px -1px var(--hi)}
+#menu{position:fixed; left:4px; bottom:calc(40px + env(safe-area-inset-bottom,0px)); z-index:55; width:230px; display:none}
+#menu.open{display:block}
+#menu .side{background:linear-gradient(0deg,var(--t1),var(--t2)); color:#fff; writing-mode:vertical-rl; transform:rotate(180deg); font:bold 18px var(--ui); padding:8px 4px}
+#menu .in{display:flex}
+#menu ul{list-style:none; margin:0; padding:2px; flex:1}
+#menu li button{width:100%; text-align:left; background:none; border:0; padding:8px; font:14px var(--ui); color:var(--ink); cursor:pointer}
+#menu li button:hover,#menu li button:focus-visible{background:var(--t1); color:#fff; outline:0}
+
+/* Bluescreen */
+#bsod{position:fixed; inset:0; background:var(--bsod); color:#fff; font:22px/1.35 var(--term); padding:calc(24px + env(safe-area-inset-top,0px)) 22px; z-index:90; display:none; cursor:pointer}
+#bsod .tag{background:#aaa; color:var(--bsod); padding:0 8px; display:inline-block; margin-bottom:18px}
+
+/* Herzen */
+.heart{position:fixed; top:-40px; z-index:80; pointer-events:none; animation:fall linear forwards}
+@keyframes fall{to{transform:translateY(110vh) rotate(260deg)}}
+.hide{display:none!important}
+@media (prefers-reduced-motion: reduce){ #yes,#no.free{transition:none} .heart{display:none} #boot .hint{animation:none} }
+</style>
+</head>
+<body>
+
+<div id="boot" role="button" tabindex="0" aria-label="Weiter"></div>
+
+<div id="desk" aria-hidden="true">
+  <div class="icons">
+    <button class="icon" data-egg="pc"><span>🖥️</span>Arbeitsplatz</button>
+    <button class="icon" data-egg="bin"><span>🗑️</span>Papierkorb</button>
+    <button class="icon" data-egg="cat"><span>🐈</span>Katze.exe</button>
+    <button class="icon" data-egg="txt"><span>📄</span>Liesmich.txt</button>
+  </div>
+
+  <div class="stage">
+    <!-- Schritt 1: Die Frage -->
+    <section class="win" id="w-ask">
+      <div class="bar"><span>Frage.exe</span><button class="btn x" data-egg="close" aria-label="Schließen">✕</button></div>
+      <div class="body">
+        <div class="ask">
+          <span class="big">💌</span>
+          <div>
+            <h1 id="hello">Hallo</h1>
+            <p>Willst du mit mir auf ein Date gehen?</p>
+          </div>
+        </div>
+        <div class="row" id="askrow">
+          <button class="btn" id="no">Nein</button>
+          <button class="btn" id="yes">Ja</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Schritt 2: Installation -->
+    <section class="win hide" id="w-inst">
+      <div class="bar"><span>Date wird installiert</span></div>
+      <div class="body">
+        <p id="instmsg">Kopiere Schmetterlinge in den Bauch…</p>
+        <div class="sunken prog" id="prog"></div>
+        <p class="small" id="pct">0 %</p>
+      </div>
+    </section>
+
+    <!-- Schritt 3: Assistent -->
+    <section class="win hide" id="w-wiz">
+      <div class="bar"><span>Date-Einrichtungsassistent</span></div>
+      <div class="body">
+        <div class="steps" id="stepinfo"></div>
+
+        <div class="pg" data-p="0">
+          <p>Was machen wir?</p>
+          <div class="opts" id="o-act"></div>
+        </div>
+
+        <div class="pg hide" data-p="1">
+          <p>Was essen wir?</p>
+          <div class="opts" id="o-food"></div>
+        </div>
+
+        <div class="pg hide" data-p="2">
+          <label class="f"><span>Datum</span><input type="date" id="d"></label>
+          <label class="f"><span>Uhrzeit</span><input type="time" id="t" value="19:00"></label>
+          <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="punct"> <span id="punctlbl">Ich bin pünktlich fertig</span></label>
+        </div>
+
+        <div class="pg hide" data-p="3">
+          <p>Lizenzvereinbarung</p>
+          <div class="sunken eula">
+            Mit Annahme dieser Vereinbarung erhält die Lizenznehmerin:
+            <ol>
+              <li>Unbegrenzten Zugriff auf Pommes von meinem Teller.</li>
+              <li>Das Recht, „nur mal probieren“ zu sagen und die Hälfte zu essen.</li>
+              <li>Eine Jacke, falls sie wieder keine mitgenommen hat.</li>
+              <li>Volle Kontrolle über die Musik im Auto.</li>
+            </ol>
+            Der Lizenzgeber verpflichtet sich zu: Händchenhalten, Komplimenten und dem Verzicht auf Handy am Tisch.
+            Support ist 24/7 verfügbar. Eine Kündigung ist technisch nicht vorgesehen.
+          </div>
+          <div style="margin-top:8px">
+            <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="eula" id="acc"> Ich akzeptiere</label>
+            <label style="display:flex;gap:6px;align-items:center;cursor:pointer"><input type="radio" name="eula" id="dec"> Ich akzeptiere nicht</label>
+          </div>
+        </div>
+
+        <div class="row">
+          <button class="btn" id="back">&lt; Zurück</button>
+          <button class="btn" id="next">Weiter &gt;</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Schritt 4: Ticket -->
+    <section class="win hide" id="w-done">
+      <div class="bar"><span>Ticket erstellt</span></div>
+      <div class="body">
+        <dl class="sunken ticket" id="ticket"></dl>
+        <p class="small" style="margin-top:10px">Schick mir die Bestätigung, dann ist es offiziell.</p>
+        <div class="row">
+          <button class="btn" id="again">Neu planen</button>
+          <a class="btn" id="wa" target="_blank" rel="noopener">Per WhatsApp senden</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<div id="menu" class="win">
+  <div class="in">
+    <div class="side">Liebe 98</div>
+    <ul>
+      <li><button data-egg="love">❤️ Liebe.exe</button></li>
+      <li><button data-egg="ctrl">⚙️ Systemsteuerung</button></li>
+      <li><button data-egg="help">❓ Hilfe</button></li>
+      <li><button data-egg="off">⏻ Herunterfahren</button></li>
+    </ul>
+  </div>
+</div>
+
+<div id="task" class="hide">
+  <button class="btn" id="start">🪟 Start</button>
+  <button id="clock">--:--</button>
+</div>
+
+<div id="bsod" role="button" tabindex="0">
+  <div class="tag">Windows</div>
+  <p>Ein schwerwiegender Fehler ist aufgetreten.</p>
+  <p>NEIN_NOT_ACCEPTED (0x0000L0VE)</p>
+  <p>Die Antwort „Nein“ ist mit diesem Herzen nicht kompatibel. Der Vorgang wurde abgebrochen, um Schäden an der Beziehung zu verhindern.</p>
+  <p>* Tippe oder drücke eine beliebige Taste, um es mit einer gültigen Antwort erneut zu versuchen.</p>
+</div>
+
+<script>
+// ===== Einstellungen: per URL anpassbar, z. B. date.html?name=Lisa&von=Cano =====
+const q = new URLSearchParams(location.search);
+const NAME = q.get('name') || 'Schatz';
+const VON  = q.get('von')  || 'mir';
+const AKTIVITAETEN = ['Essen gehen','Kino','Spaziergang mit Eis','Zuhause kochen','Wellness','Überrasch mich'];
+const ESSEN = ['Pizza','Sushi','Pasta','Burger','Döner','Egal'];
+
+const $ = s => document.querySelector(s);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+$('#hello').textContent = 'Hallo ' + NAME;
+
+// ===== Bootsequenz =====
+const bootLines = [
+  ['Liebe-BIOS v2.0  (c) ' + VON, ''],
+  ['Speichertest: 640 KB Zuneigung … ', 'ok', 'OK'],
+  ['Lade herz.sys … ', 'ok', 'OK'],
+  ['Prüfe Puls … ', 'warn', 'WARNUNG: erhöhte Frequenz'],
+  ['Suche Gegenstück … ', 'ok', 'gefunden: ' + NAME],
+  ['Starte Date.exe …', ''],
+];
+const boot = $('#boot');
+let bootDone = false, bi = 0;
+function bootStep(){
+  if (bootDone) return;
+  if (bi < bootLines.length){
+    const [txt, cls, res] = bootLines[bi++];
+    const d = document.createElement('div');
+    d.textContent = txt;
+    if (res){ const s = document.createElement('span'); s.className = cls; s.textContent = res; d.appendChild(s); }
+    boot.appendChild(d);
+    setTimeout(bootStep, reduce ? 60 : 420);
+  } else {
+    const h = document.createElement('div'); h.className = 'hint'; h.textContent = 'Tippen zum Fortfahren_';
+    boot.appendChild(h);
+  }
+}
+function endBoot(){
+  if (bootDone) return; bootDone = true;
+  boot.remove(); $('#desk').removeAttribute('aria-hidden'); $('#task').classList.remove('hide');
+  $('#yes').focus();
+}
+boot.addEventListener('click', endBoot);
+boot.addEventListener('keydown', endBoot);
+bootStep();
+
+// ===== Dialogfenster =====
+let dlgN = 0;
+function popup(title, msg, icon = '⚠️'){
+  const w = document.createElement('div');
+  w.className = 'win dlg'; w.setAttribute('role','alertdialog');
+  const off = (dlgN++ % 5) * 18;
+  w.style.left = `calc(50% - min(44vw,160px) + ${off - 36}px)`;
+  w.style.top  = `calc(30% + ${off}px)`;
+  w.innerHTML = `<div class="bar"><span></span></div><div class="body"><span>${icon}</span><div><p></p><div class="row" style="margin-top:8px"><button class="btn">OK</button></div></div></div>`;
+  w.querySelector('.bar span').textContent = title;
+  w.querySelector('p').textContent = msg;
+  const ok = w.querySelector('button');
+  ok.onclick = () => w.remove();
+  document.body.appendChild(w); ok.focus();
+}
+
+// ===== Der Nein-Knopf (gewollter Bug) =====
+const no = $('#no'), yes = $('#yes');
+const noLabels = ['Nein','Bist du sicher?','Wirklich?','Denk nochmal nach','Fehler: hirn.dll','Letzte Chance','Okay, ja'];
+let tries = 0, lastDodge = 0, snacks = false;
+
+function dodge(){
+  const now = Date.now(); if (now - lastDodge < 250) return; lastDodge = now;
+  tries++;
+  no.textContent = noLabels[Math.min(tries, noLabels.length - 1)];
+  if (!no.classList.contains('free')){ no.classList.add('free'); document.body.appendChild(no); }
+  const w = no.offsetWidth, h = no.offsetHeight;
+  const maxX = Math.max(8, innerWidth - w - 8), maxY = Math.max(8, innerHeight - h - 60);
+  no.style.left = (8 + Math.random() * (maxX - 8)) + 'px';
+  no.style.top  = (8 + Math.random() * (maxY - 8)) + 'px';
+  yes.style.transform = `scale(${Math.min(1 + tries * 0.18, 2.2)})`;
+
+  if (tries === 3) popup('Virenscanner', '„Nein“ wurde als Bedrohung erkannt und in Quarantäne verschoben. Leider ist die Quarantäne kaputt.', '🛡️');
+  if (tries === 5) popup('Fehler 0x000NEIN', 'Ungültige Eingabe. Gültige Werte sind: „Ja“ und „Ja (empfohlen)“.', '❌');
+  if (tries >= 7) bsod();
+}
+no.addEventListener('pointerenter', e => { if (e.pointerType === 'mouse') dodge(); });
+no.addEventListener('pointerdown', e => { e.preventDefault(); dodge(); });
+no.addEventListener('click', e => { e.preventDefault(); dodge(); });
+
+function bsod(){
+  const b = $('#bsod'); b.style.display = 'block'; b.focus();
+  const close = () => {
+    b.style.display = 'none';
+    no.remove();
+    document.querySelectorAll('.dlg').forEach(d => d.remove());
+    yes.style.transform = '';
+    const s = document.createElement('button');
+    s.className = 'btn'; s.textContent = 'Ja, aber mit Snacks';
+    s.onclick = () => { snacks = true; sayYes(); };
+    $('#askrow').prepend(s); s.focus();
+    b.removeEventListener('click', close); removeEventListener('keydown', close);
+  };
+  setTimeout(() => { b.addEventListener('click', close); addEventListener('keydown', close); }, 400);
+}
+
+// ===== Ja → Installation =====
+yes.onclick = sayYes;
+function sayYes(){
+  if (no.isConnected && no.classList.contains('free')) no.remove();
+  $('#w-ask').classList.add('hide'); $('#w-inst').classList.remove('hide');
+  const prog = $('#prog'), pct = $('#pct'), msg = $('#instmsg');
+  const msgs = ['Kopiere Schmetterlinge in den Bauch…','Entpacke Vorfreude…','Registriere Lieblingsmensch…','Optimiere Outfitauswahl…'];
+  let p = 0;
+  const tick = setInterval(() => {
+    p = Math.min(p + 3, 99);
+    pct.textContent = p + ' %';
+    prog.innerHTML = '<i></i>'.repeat(Math.round(p / 6));
+    msg.textContent = msgs[Math.min(Math.floor(p / 25), 3)];
+    if (p === 99){
+      clearInterval(tick);
+      msg.textContent = 'Hängt bei 99 %. Ganz normales Windows-Verhalten.';
+      setTimeout(() => { pct.textContent = '100 %'; msg.textContent = 'Fertig.'; hearts(); setTimeout(startWizard, 900); }, reduce ? 300 : 2400);
+    }
+  }, reduce ? 10 : 60);
+}
+
+function hearts(){
+  if (reduce) return;
+  for (let i = 0; i < 28; i++){
+    const h = document.createElement('div');
+    h.className = 'heart'; h.textContent = ['❤️','💖','💘','💕'][i % 4];
+    h.style.left = Math.random() * 100 + 'vw';
+    h.style.fontSize = (18 + Math.random() * 22) + 'px';
+    h.style.animationDuration = (2.5 + Math.random() * 2.5) + 's';
+    h.style.animationDelay = Math.random() * 0.8 + 's';
+    document.body.appendChild(h);
+    setTimeout(() => h.remove(), 6000);
+  }
+}
+
+// ===== Assistent =====
+const pick = { act: null, food: null };
+function buildOpts(el, list, key){
+  list.forEach(v => {
+    const l = document.createElement('label');
+    const r = document.createElement('input'); r.type = 'radio'; r.name = key;
+    l.append(r, document.createTextNode(' ' + v));
+    if (key === 'food' && v === 'Egal'){
+      l.classList.add('off');
+      r.addEventListener('click', e => { e.preventDefault(); popup('Endlosschleife erkannt', '„Egal“ führt erfahrungsgemäß zu 45 Minuten Diskussion ohne Ergebnis. Bitte etwas Konkretes wählen.', '🔁'); });
+    } else {
+      r.onchange = () => { pick[key] = v; };
+    }
+    el.appendChild(l);
+  });
+}
+buildOpts($('#o-act'), AKTIVITAETEN, 'act');
+buildOpts($('#o-food'), ESSEN, 'food');
+
+const d = $('#d');
+d.min = new Date().toISOString().slice(0, 10);
+$('#punct').onchange = e => {
+  $('#punctlbl').textContent = e.target.checked ? 'Ich bin pünktlich fertig (20 Min. Puffer automatisch eingeplant)' : 'Ich bin pünktlich fertig';
+};
+// Ablehnen ist nicht vorgesehen
+$('#dec').addEventListener('click', e => { e.preventDefault(); $('#acc').checked = true; popup('Hinweis', 'Option nicht verfügbar. Wir haben das mal für dich korrigiert.', 'ℹ️'); });
+
+let page = 0;
+const pages = [...document.querySelectorAll('.pg')];
+const titles = ['Aktivität','Essen','Termin','Lizenz'];
+function show(){
+  pages.forEach((p, i) => p.classList.toggle('hide', i !== page));
+  $('#stepinfo').textContent = `Schritt ${page + 1} von 4: ${titles[page]}`;
+  $('#back').disabled = page === 0;
+  $('#next').textContent = page === 3 ? 'Fertigstellen' : 'Weiter >';
+}
+function startWizard(){ $('#w-inst').classList.add('hide'); $('#w-wiz').classList.remove('hide'); show(); }
+$('#back').onclick = () => { if (page > 0){ page--; show(); } };
+$('#next').onclick = () => {
+  if (page === 0 && !pick.act)  return popup('Eingabe fehlt', 'Bitte eine Aktivität auswählen.');
+  if (page === 1 && !pick.food) return popup('Eingabe fehlt', 'Bitte etwas zu essen auswählen.');
+  if (page === 2 && (!d.value || !$('#t').value)) return popup('Eingabe fehlt', 'Bitte Datum und Uhrzeit wählen.');
+  if (page === 3 && !$('#acc').checked) return popup('Eingabe fehlt', 'Bitte die Lizenzvereinbarung akzeptieren.');
+  if (page < 3){ page++; show(); } else finish();
+};
+
+// ===== Ticket =====
+function finish(){
+  const id = 'INC-' + Date.now().toString().slice(-6);
+  const datum = new Date(d.value + 'T00:00').toLocaleDateString('de-DE', { weekday:'long', day:'numeric', month:'long' });
+  const zeit = $('#t').value + ' Uhr';
+  const rows = [
+    ['Ticket', id],
+    ['Antragstellerin', NAME],
+    ['Bearbeiter', VON],
+    ['Aktivität', pick.act],
+    ['Essen', pick.food + (snacks ? ' + Snacks' : '')],
+    ['Termin', `${datum}, ${zeit}`],
+    ['Priorität', 'Sehr hoch'],
+    ['Status', 'Bestätigt ✅'],
+  ];
+  const dl = $('#ticket'); dl.innerHTML = '';
+  rows.forEach(([k, v]) => { const dt = document.createElement('dt'); dt.textContent = k; const dd = document.createElement('dd'); dd.textContent = v; dl.append(dt, dd); });
+  const txt = `Date gebucht 💘\nTicket ${id}\n${pick.act}, ${pick.food}${snacks ? ' + Snacks' : ''}\n${datum}, ${zeit}`;
+  $('#wa').href = 'https://wa.me/?text=' + encodeURIComponent(txt);
+  $('#w-wiz').classList.add('hide'); $('#w-done').classList.remove('hide');
+  hearts();
+}
+$('#again').onclick = () => { page = 0; $('#w-done').classList.add('hide'); $('#w-wiz').classList.remove('hide'); show(); };
+
+// ===== Eastereggs =====
+const eggs = {
+  pc:    ['Arbeitsplatz', 'Freier Speicher auf Laufwerk C: 0 Byte. Alles voll mit Gedanken an dich.', '💾'],
+  bin:   ['Papierkorb', 'Enthält 1 Objekt: nein.exe (0 KB). Wiederherstellen nicht möglich.', '🗑️'],
+  cat:   ['Katze.exe', 'Die Katze hat dem Date bereits zugestimmt. Bedingung: Leckerli bei Rückkehr.', '🐈'],
+  txt:   ['Liesmich.txt', 'Bekannte Probleme: Der Nein-Knopf ist kaputt. Fix ist nicht geplant.', '📄'],
+  close: ['Zugriff verweigert', 'Dieses Fenster kann erst nach einer Antwort geschlossen werden.', '🔒'],
+  love:  ['Liebe.exe', 'Läuft bereits. Prozess kann nicht beendet werden.', '❤️'],
+  ctrl:  ['Systemsteuerung', 'Kuscheln: aktiviert. Streitschlichtung: über Essen geregelt.', '⚙️'],
+  help:  ['Hilfe', 'Hast du schon versucht, Ja zu sagen?', '❓'],
+  off:   ['Herunterfahren', 'Herunterfahren nicht möglich: Es sind noch ungespeicherte Gefühle geöffnet.', '⏻'],
+};
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-egg]');
+  if (t){ $('#menu').classList.remove('open'); popup(...eggs[t.dataset.egg]); return; }
+  if (!e.target.closest('#menu') && !e.target.closest('#start')) $('#menu').classList.remove('open');
+});
+$('#start').onclick = () => $('#menu').classList.toggle('open');
+
+// Uhr: 5x antippen
+const clock = $('#clock'); let clockTaps = 0, infinite = false;
+function tickClock(){ if (!infinite) clock.textContent = new Date().toLocaleTimeString('de-DE', { hour:'2-digit', minute:'2-digit' }); }
+tickClock(); setInterval(tickClock, 15000);
+clock.onclick = () => { if (++clockTaps === 5){ infinite = true; clock.textContent = '∞'; popup('Uhr', 'Zeit mit dir vergeht zu schnell. Uhr wurde neu kalibriert.', '⏰'); } };
+
+// Tastatur: „sudo“ und Konami-Code
+let buf = '';
+const konami = 'ArrowUp,ArrowUp,ArrowDown,ArrowDown,ArrowLeft,ArrowRight,ArrowLeft,ArrowRight,b,a';
+let keys = [];
+addEventListener('keydown', e => {
+  if (!bootDone) return;
+  buf = (buf + e.key).slice(-4).toLowerCase();
+  if (buf === 'sudo') popup('sudo', `${NAME} ist nicht in der sudoers-Datei. Dieser Vorfall wird gemeldet. An ${VON}.`, '🔐');
+  keys.push(e.key); keys = keys.slice(-10);
+  if (keys.join(',') === konami){ popup('Cheat aktiviert', 'Unbegrenzt Küsse freigeschaltet.', '🎮'); hearts(); }
+});
+
+// Tab verlassen
+const baseTitle = document.title;
+document.addEventListener('visibilitychange', () => { document.title = document.hidden ? 'Komm zurück 🥺' : baseTitle; });
+</script>
+</body>
+</html>
